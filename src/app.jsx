@@ -19,31 +19,72 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import { Alert, Card, CardTitle, CardBody } from '@patternfly/react-core';
-
-const _ = cockpit.gettext;
+import Adaptor from './adaptor.jsx';
+import Sensor from './sensor.jsx';
+import { Page, PageSection } from '@patternfly/react-core';
 
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { hostname: _("Unknown") };
+        this.state = { adaptors: [] };
+        this.getSensors();
+    }
 
-        cockpit.file('/etc/hostname').watch(content => {
-            this.setState({ hostname: content.trim() });
+    componentDidMount() {
+        this.timer = setInterval(() => {
+            this.getSensors2();
+        }, 5000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.timer);
+    }
+
+    getSensors() {
+        cockpit.spawn(["sensors"]).stream(content => {
+            var adaptors = [];
+            var lines = content.split('\n');
+            var i = 0;
+            while (i < lines.length && lines[i] != '') {
+                var current_adaptor = {};
+                current_adaptor.name = lines[i];
+                current_adaptor.type = lines[i + 1];
+                current_adaptor.sensors = [];
+                var j = i + 2;
+                while (j < lines.length && lines[j] != '') {
+                    var sensor = {};
+                    var stringStartIndex = lines[j].indexOf(':');
+                    var stringEndIndex = lines[j].indexOf('(');
+                    sensor.name = lines[j].substring(0, stringStartIndex);
+                    sensor.value = lines[j].substring(stringStartIndex + 1, (stringEndIndex > -1 ? stringEndIndex : lines[j].length)).trim();
+                    sensor.info = stringEndIndex > -1 ? lines[j].substring(stringEndIndex) : null;
+                    j++;
+                    while (lines[j].startsWith(' ')) {
+                        sensor.info += " " + lines[j].trimStart();
+                        j++;
+                    }
+                    current_adaptor.sensors.push(sensor);
+                }
+                adaptors.push(current_adaptor);
+                i = j + 1;
+            }
+            this.setState({ adaptors: adaptors });
         });
     }
 
     render() {
         return (
-            <Card>
-                <CardTitle>Starter Kit</CardTitle>
-                <CardBody>
-                    <Alert
-                        variant="info"
-                        title={ cockpit.format(_("Running on $0"), this.state.hostname) }
-                    />
-                </CardBody>
-            </Card>
+            <Page>
+                <PageSection>
+                    {this.state.adaptors.map((adaptor) =>
+                        <Adaptor key={adaptor.name} name={adaptor.name} type={adaptor.type}>
+                            {adaptor.sensors.map((sensor) =>
+                                <Sensor key={sensor.name} name={sensor.name} value={sensor.value} info={sensor.info} />
+                            )}
+                        </Adaptor>
+                    )}
+                </PageSection>
+            </Page>
         );
     }
 }
