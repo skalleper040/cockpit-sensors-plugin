@@ -32,7 +32,7 @@ export class Application extends React.Component {
 
     componentDidMount() {
         this.timer = setInterval(() => {
-            this.getSensors2();
+            this.getSensors();
         }, 5000);
     }
 
