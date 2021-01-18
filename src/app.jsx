@@ -21,7 +21,7 @@ import cockpit from 'cockpit';
 import React from 'react';
 import Adaptor from './adaptor.jsx';
 import Sensor from './sensor.jsx';
-import { Page, PageSection } from '@patternfly/react-core';
+import { Page, PageSection, Flex } from '@patternfly/react-core';
 
 export class Application extends React.Component {
     constructor() {
@@ -33,7 +33,7 @@ export class Application extends React.Component {
     componentDidMount() {
         this.timer = setInterval(() => {
             this.getSensors();
-        }, 5000);
+        }, 2000);
     }
 
     componentWillUnmount() {
@@ -41,6 +41,34 @@ export class Application extends React.Component {
     }
 
     getSensors() {
+        cockpit.script(["sensors -u | egrep 'fan[0-9]_input|temp[0-9]_input|^[^ ].*[^:]$'"])
+            .done((data) => {
+                var adaptors = [];
+                var lines = data.split('\n');
+                var i = 0;
+                while (i < lines.length && lines[i] != '') {
+                    var adaptor = {};
+                    adaptor.sensors = [];
+                    adaptor.name = lines[i];
+                    adaptor.type = lines[i + 1];
+                    i = i + 2;
+                    while (i < lines.length && lines[i].startsWith(' ')) {
+                        var sensor = {};
+                        var stringIndex = lines[i].indexOf(':');
+                        sensor.name = lines[i].substring(0, stringIndex).trim();
+                        sensor.value = Math.round(lines[i].substring(stringIndex + 1).trim() * 10) / 10;
+                        sensor.type = sensor.name.startsWith('fan') ? 'fan' : 'temp';
+                        adaptor.sensors.push(sensor);
+                        i++;
+                    }
+                    adaptors.push(adaptor);
+                }
+                console.log(adaptors);
+                this.setState({ adaptors: adaptors });
+            })
+    }
+
+    /** getSensors() {
         cockpit.spawn(["sensors"]).stream(content => {
             var adaptors = [];
             var lines = content.split('\n');
@@ -70,21 +98,25 @@ export class Application extends React.Component {
             }
             this.setState({ adaptors: adaptors });
         });
-    }
+    } */
 
     render() {
         return (
             <Page>
-                <PageSection>
-                    {this.state.adaptors.map((adaptor) =>
-                        <Adaptor key={adaptor.name} name={adaptor.name} type={adaptor.type}>
-                            {adaptor.sensors.map((sensor) =>
-                                <Sensor key={sensor.name} name={sensor.name} value={sensor.value} info={sensor.info} />
-                            )}
-                        </Adaptor>
-                    )}
+                <PageSection isFilled={true}>
+                    <Flex direction={{ default: 'column', md: 'row', lg: 'row', sm: 'column' }}
+                        justifyContent={{ default: 'justifyContentSpaceEvenly' }}
+                        spaceItems={{ modifier: 'spaceItemsXl' }} >
+                        {this.state.adaptors.map((adaptor) =>
+                            <Adaptor key={adaptor.name} name={adaptor.name} type={adaptor.type}>
+                                {adaptor.sensors.map((sensor) =>
+                                    <Sensor key={sensor.name} name={sensor.name} value={sensor.value} info={sensor.info} type={sensor.type} />
+                                )}
+                            </Adaptor>
+                        )}
+                    </Flex>
                 </PageSection>
-            </Page>
+            </Page >
         );
     }
 }

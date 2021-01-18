@@ -1,3 +1,18 @@
 p {
     font-weight: bold;
 }
+
+.pf-c-card {
+    &__title {
+      font-size: var(--pf-global--FontSize--xl);
+      font-weight: var(--pf-global--FontWeight--normal);
+    }
+}
+
+.pf-c-progress {
+    grid-template-columns: 1fr minmax(50%, auto);
+}
+
+#app {
+    height: 100%;
+}
